@@ -15,13 +15,8 @@ function relativePath(dirname) {
 
 }
 
-const copyPromises = new Set()
-function copyFile(srcPath, dstPath, data) {
-    const p = __copyFile(srcPath, dstPath, data)
 
-    copyPromises.add(p)
-}
-async function __copyFile(filename, dstname, data) {
+async function copyFile(filename, dstname, data) {
     const file = await ejs.renderFile(filename, data, { async: true })
 
     await enableDir(path.dirname(dstname))
@@ -29,25 +24,23 @@ async function __copyFile(filename, dstname, data) {
     ws.write(file)
     ws.end()
 }
-
 async function copyTpl(srcPath, dstPath, data) {
     const stats = await stat(srcPath)
 
     if (stats.isDirectory()) {
         const files = await readdir(srcPath);
 
-        for (const file of files) {
+        return Promise.all(files.map(async file=>{
             const src = path.resolve(srcPath, file)
             const dst = path.resolve(dstPath, file)
 
-            copyTpl(src, dst, data)
-        }
+            await copyTpl(src, dst, data)
+        }))
     } else {
-        copyFile(srcPath, dstPath, data)
+        await copyFile(srcPath, dstPath, data)
 
     }
 }
-
 async function enableDir(name) {
     const dirname = path.dirname(name)
     if (name === dirname) return
@@ -60,34 +53,28 @@ async function enableDir(name) {
     } catch (error) { }
 
 }
-
-
 function addDevDependencies(...deps) {
     const spinner = ora('devDependencies adding...\n')
+    spinner.start();
 
-    return Promise.all([...copyPromises]).then(() => {
-        spinner.start();
+    return new Promise((resolve, reject) => {
+        const npmInstall = spawn('npm', ['i', '-D', ...deps], { shell: true });
 
-        return new Promise((resolve, reject) => {
-            const npmInstall = spawn('npm', ['i', '-D', ...deps], { shell: true });
+        npmInstall.stdout.pipe(process.stdout)
+        npmInstall.stderr.pipe(process.stderr)
 
-            npmInstall.stdout.pipe(process.stdout)
-            npmInstall.stderr.pipe(process.stderr)
+        npmInstall.on('close', (code) => {
+            if (code === 0) {
+                resolve()
+                spinner.succeed('devDependencies add SUCCESS!');
 
-            npmInstall.on('close', (code) => {
-                if (code === 0) {
-                    resolve()
-                    spinner.succeed('devDependencies add SUCCESS!');
+            } else {
+                reject()
+                spinner.fail('devDependencies add FAILED!');
+            }
+        });
 
-                } else {
-                    reject()
-                    spinner.fail('devDependencies add FAILED!');
-                }
-            });
-
-        })
     })
-
 }
 
 module.exports = {
