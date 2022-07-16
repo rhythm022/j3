@@ -5,14 +5,15 @@ const { scaffold } = require('./scaffold')
 
 
 const program = new Command()
-
 program
-    .version('0.1.0')
+  .name('dev-utils')
+  .description('CLI to some Development utilities')
+  .version('0.0.1');
+
+program.command('yo')
     .description('scaffold')
-    .command('yo')
     .action(() => {
         scaffold()
     })
 
-
-program.parse(process.argv)
+program.parse()
