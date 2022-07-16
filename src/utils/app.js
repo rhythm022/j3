@@ -1,6 +1,8 @@
 const path = require('path')
 const ejs = require('ejs')
 const fs = require('fs')
+const ora = require('ora')
+
 const { stat, mkdir, readdir } = require('fs/promises');
 const { spawn } = require('child_process');
 function appname() {
@@ -61,7 +63,11 @@ async function enableDir(name) {
 
 
 function addDevDependencies(...deps) {
+    const spinner = ora('devDependencies adding...\n')
+
     return Promise.all([...copyPromises]).then(() => {
+        spinner.start();
+
         return new Promise((resolve, reject) => {
             const npmInstall = spawn('npm', ['i', '-D', ...deps], { shell: true });
 
@@ -71,8 +77,11 @@ function addDevDependencies(...deps) {
             npmInstall.on('close', (code) => {
                 if (code === 0) {
                     resolve()
+                    spinner.succeed('devDependencies add SUCCESS!');
+
                 } else {
                     reject()
+                    spinner.fail('devDependencies add FAILED!');
                 }
             });
 
